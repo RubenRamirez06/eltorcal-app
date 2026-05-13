@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Fallos – Autoescuelas Torcal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ─── VARIABLES ─── */
+    :root {
+      --verde:      #2EB135;
+      --verde-dk:   #239128;
+      --verde-xl:   #e8f8e9;
+      --naranja:    #F5821F;
+      --naranja-dk: #d96d10;
+      --gris-bg:    #f4f4f4;
+      --gris-mid:   #666;
+      --gris-dk:    #222;
+      --blanco:     #fff;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; color: var(--gris-dk); background: var(--gris-bg); }
+
+    /* ─── HEADER ─── */
+    .header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      height: 60px; background: #fff; border-bottom: 3px solid var(--verde);
+      display: flex; align-items: center; padding: 0 20px; gap: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.1);
+    }
+    .header-logo {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.2rem;
+      text-transform: uppercase; letter-spacing: .5px; color: var(--verde);
+      text-decoration: none; display: flex; align-items: center; gap: 8px;
+    }
+    .header-logo span { color: var(--naranja); }
+    .header-badge {
+      background: var(--verde-xl); color: var(--verde-dk);
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .78rem;
+      text-transform: uppercase; letter-spacing: .5px; padding: 3px 10px;
+      border-radius: 20px; border: 1.5px solid var(--verde);
+    }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .header-user { font-size: .85rem; color: var(--gris-mid); font-weight: 500; }
+
+    /* ─── BOTONES ─── */
+    .btn-sm {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .85rem;
+      text-transform: uppercase; letter-spacing: .3px; padding: 6px 16px;
+      border-radius: 4px; border: none; cursor: pointer; transition: background .18s;
+    }
+    .btn-verde  { background: var(--verde);   color: #fff; }
+    .btn-verde:hover  { background: var(--verde-dk); }
+    .btn-naranja { background: var(--naranja); color: #fff; }
+    .btn-naranja:hover { background: var(--naranja-dk); }
+    .btn-outline { background: transparent; color: var(--gris-mid); border: 1.5px solid #ddd; }
+    .btn-outline:hover { border-color: #bbb; color: var(--gris-dk); }
+    .btn-danger { background: #e74c3c; color: #fff; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-loading { opacity: .7; pointer-events: none; }
+
+    /* ─── LAYOUT ─── */
+    .app-layout { display: flex; height: calc(100vh - 60px); overflow: hidden; margin-top: 60px; }
+
+    /* ─── SIDEBAR ─── */
+    .sidebar {
+      width: 320px; flex-shrink: 0; background: #fff;
+      border-right: 1px solid #e8e8e8; display: flex; flex-direction: column;
+      overflow: hidden; box-shadow: 2px 0 8px rgba(0,0,0,.05);
+    }
+    .sidebar-tabs { display: flex; border-bottom: 2px solid #f0f0f0; }
+    .sidebar-tab {
+      flex: 1; padding: 12px 8px;
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .88rem;
+      text-transform: uppercase; letter-spacing: .3px; text-align: center; cursor: pointer;
+      color: var(--gris-mid); border-bottom: 3px solid transparent; margin-bottom: -2px;
+      transition: color .18s, border-color .18s;
+    }
+    .sidebar-tab.active { color: var(--verde); border-bottom-color: var(--verde); }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 16px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .panel-titulo {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1rem;
+      text-transform: uppercase; color: var(--gris-dk); margin-bottom: 12px;
+    }
+
+    /* ─── ALUMNOS ─── */
+    .alumno-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border-radius: 8px; cursor: pointer; transition: background .15s;
+      border: 1.5px solid transparent; margin-bottom: 6px;
+    }
+    .alumno-item:hover { background: var(--verde-xl); }
+    .alumno-item.selected { background: var(--verde-xl); border-color: var(--verde); }
+    .alumno-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--verde-dk), var(--verde));
+      color: #fff; font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+      font-size: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .alumno-info { flex: 1; min-width: 0; }
+    .alumno-nombre { font-weight: 600; font-size: .9rem; color: var(--gris-dk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .alumno-fallos { font-size: .78rem; color: var(--gris-mid); margin-top: 1px; }
+
+    /* ─── FALLOS ─── */
+    .fallo-item {
+      background: #f9f9f9; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+      border-left: 3px solid var(--naranja); cursor: pointer; transition: box-shadow .15s;
+    }
+    .fallo-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+    .fallo-item.selected { border-left-color: var(--verde); background: var(--verde-xl); }
+    .fallo-desc { font-weight: 600; font-size: .88rem; color: var(--gris-dk); margin-bottom: 3px; }
+    .fallo-meta { font-size: .75rem; color: var(--gris-mid); }
+
+    .empty-state { text-align: center; padding: 32px 16px; color: var(--gris-mid); font-size: .88rem; line-height: 1.6; }
+    .empty-state .icon { font-size: 2rem; margin-bottom: 8px; }
+
+    .instruccion-marcar {
+      display: none; background: linear-gradient(135deg, var(--naranja), #f5a240);
+      color: #fff; padding: 10px 14px;
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .88rem;
+      text-align: center; letter-spacing: .3px; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .85; } }
+
+    /* ─── MAPA ─── */
+    .mapa-wrap { flex: 1; position: relative; min-height: 0; }
+    #mapa { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #mapa.modo-marcar { cursor: crosshair; }
+
+    /* ─── FAB ─── */
+    .fab {
+      position: absolute; bottom: 24px; right: 24px; z-index: 500;
+      background: var(--naranja); color: #fff;
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1rem;
+      text-transform: uppercase; letter-spacing: .5px; padding: 13px 24px;
+      border-radius: 30px; border: none; cursor: pointer;
+      box-shadow: 0 4px 20px rgba(245,130,31,.45);
+      display: flex; align-items: center; gap: 8px;
+      transition: background .18s, transform .15s, box-shadow .18s;
+    }
+    .fab:hover { background: var(--naranja-dk); transform: translateY(-2px); box-shadow: 0 6px 24px rgba(245,130,31,.55); }
+    .fab.cancelar { background: #888; box-shadow: none; }
+    .fab.cancelar:hover { background: #666; }
+
+    /* ─── OVERLAY / MODAL ─── */
+    .overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      backdrop-filter: blur(3px); z-index: 2000; align-items: center; justify-content: center;
+    }
+    .overlay.visible { display: flex; }
+    .modal {
+      background: #fff; border-radius: 14px; width: 100%; max-width: 440px; margin: 16px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.25); overflow: hidden; animation: modalIn .22s ease;
+    }
+    @keyframes modalIn { from { opacity:0; transform:translateY(16px) scale(.97); } to { opacity:1; transform:none; } }
+    .modal-header {
+      background: linear-gradient(135deg, var(--verde-dk), var(--verde));
+      padding: 22px 24px 18px; color: #fff; position: relative;
+    }
+    .modal-header.naranja { background: linear-gradient(135deg, #d96d10, var(--naranja)); }
+    .modal-header.azul    { background: linear-gradient(135deg, #1a56db, #3b82f6); }
+    .modal-header h3 {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.3rem;
+      text-transform: uppercase; margin: 0 0 3px;
+    }
+    .modal-header p { font-size: .85rem; opacity: .88; margin: 0; }
+    .modal-close {
+      position: absolute; top: 14px; right: 16px;
+      background: rgba(255,255,255,.2); border: none; color: #fff; font-size: 1.1rem;
+      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: background .15s;
+    }
+    .modal-close:hover { background: rgba(255,255,255,.35); }
+    .modal-body { padding: 22px 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block; font-size: .82rem; font-weight: 600; color: var(--gris-mid);
+      text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 6px;
+      font-family: 'Barlow', sans-serif; font-size: .93rem; color: var(--gris-dk);
+      outline: none; transition: border-color .18s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--verde); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .modal-footer { padding: 0 24px 20px; display: flex; gap: 10px; }
+    .modal-footer button { flex: 1; padding: 11px; font-size: .95rem; }
+
+    /* ─── TABS LOGIN ─── */
+    .login-tabs { display: flex; border-bottom: 2px solid #f0f0f0; }
+    .login-tab {
+      flex: 1; padding: 12px; text-align: center; cursor: pointer;
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .9rem;
+      text-transform: uppercase; color: var(--gris-mid);
+      border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .18s;
+    }
+    .login-tab.active { color: var(--verde); border-bottom-color: var(--verde); }
+
+    /* ─── PANTALLA LOGIN ─── */
+    #pantalla-login {
+      position: fixed; inset: 0; background: var(--gris-bg);
+      z-index: 3000; display: none; align-items: center; justify-content: center;
+    }
+    #pantalla-login.visible { display: flex; }
+    .login-header {
+      background: linear-gradient(135deg, #1a3a1a, var(--verde-dk));
+      padding: 28px 28px 22px; color: #fff; text-align: center;
+    }
+    .login-header .logo-text {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.5rem;
+      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px;
+    }
+    .login-header .logo-text span { color: var(--naranja); }
+    .login-header p { font-size: .85rem; opacity: .85; margin: 0; }
+
+    /* ─── ALERTAS ─── */
+    .alerta {
+      display: none; border-radius: 6px; padding: 9px 12px;
+      font-size: .85rem; font-weight: 600; margin-bottom: 12px; text-align: center;
+    }
+    .alerta.error   { background: #fdecea; color: #c62828; display: block; }
+    .alerta.success { background: #e8f5e9; color: #2e7d32; display: block; }
+
+    /* ─── CÓDIGO INVITACIÓN ─── */
+    .codigo-box {
+      background: var(--verde-xl); border: 2px dashed var(--verde); border-radius: 8px;
+      padding: 16px; text-align: center; margin: 12px 0;
+    }
+    .codigo-valor {
+      font-family: 'Barlow Condensed', sans-serif; font-size: 2rem; font-weight: 800;
+      letter-spacing: 6px; color: var(--verde-dk);
+    }
+    .codigo-hint { font-size: .78rem; color: var(--gris-mid); margin-top: 4px; }
+
+    /* ─── POPUPS LEAFLET ─── */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,.18) !important;
+      padding: 0 !important; overflow: hidden;
+    }
+    .leaflet-popup-content { margin: 0 !important; }
+    .popup-inner { padding: 14px 16px; min-width: 200px; max-width: 260px; }
+    .popup-desc { font-weight: 600; font-size: .9rem; color: var(--gris-dk); margin-bottom: 5px; }
+    .popup-tipo {
+      display: inline-block; background: var(--naranja); color: #fff; font-size: .72rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+      padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
+    }
+    .popup-meta { font-size: .75rem; color: var(--gris-mid); }
+    .popup-alumno { font-size: .78rem; color: var(--verde-dk); font-weight: 600; margin-bottom: 3px; }
+
+    /* ─── SELECTOR ROL ─── */
+    .rol-selector { display: flex; gap: 10px; margin-bottom: 16px; }
+    .rol-btn {
+      flex: 1; padding: 12px 8px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer;
+      text-align: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+      font-size: .88rem; text-transform: uppercase; background: #fff; color: var(--gris-mid);
+      transition: all .18s;
+    }
+    .rol-btn.selected { border-color: var(--verde); background: var(--verde-xl); color: var(--verde-dk); }
+    .rol-btn .rol-icon { font-size: 1.5rem; display: block; margin-bottom: 4px; }
+
+    /* ─── PANEL GESTIÓN ─── */
+    .gestion-accion {
+      background: #f9f9f9; border-radius: 8px; padding: 12px 14px;
+      margin-bottom: 10px; border: 1px solid #eee;
+    }
+    .gestion-titulo {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .9rem;
+      text-transform: uppercase; color: var(--gris-dk); margin-bottom: 8px;
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 700px) {
+      .sidebar { width: 100%; position: fixed; bottom: 0; left: 0; right: 0; height: 45vh; z-index: 800; border-right: none; border-top: 2px solid #e8e8e8; }
+      .mapa-wrap { height: 55vh; }
+      .app-layout { flex-direction: column; }
+      .fab { bottom: calc(45vh + 16px); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     PANTALLA LOGIN / REGISTRO
+══════════════════════════════════ -->
+<div id="pantalla-login" class="visible">
+  <div class="modal" style="max-width:420px;">
+    <div class="login-header">
+      <div class="logo-text">Autoescuelas <span>Torcal</span></div>
+      <p>Plataforma de seguimiento de prácticas</p>
+    </div>
+
+    <div class="login-tabs">
+      <div class="login-tab active" onclick="mostrarLoginTab('entrar')">Entrar</div>
+      <div class="login-tab" onclick="mostrarLoginTab('registro')">Registrarse</div>
+      <div class="login-tab" onclick="mostrarLoginTab('alumno-codigo')">Soy alumno</div>
+    </div>
+
+    <!-- TAB: LOGIN -->
+    <div id="tab-entrar" class="modal-body">
+      <div class="alerta" id="login-msg"></div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="tu@email.com" onkeydown="if(event.key==='Enter')hacerLogin()" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')hacerLogin()" />
+      </div>
+      <button class="btn-sm btn-verde" id="btn-login" style="width:100%;padding:12px;font-size:1rem;" onclick="hacerLogin()">Entrar</button>
+    </div>
+
+    <!-- TAB: REGISTRO PROFESOR -->
+    <div id="tab-registro" class="modal-body" style="display:none;">
+      <div class="alerta" id="registro-msg"></div>
+      <p style="font-size:.82rem;color:var(--gris-mid);margin-bottom:14px;">Regístrate como <strong>profesor</strong>. Los alumnos se unen con código de invitación.</p>
+      <div class="form-group">
+        <label>Tu nombre completo</label>
+        <input type="text" id="reg-nombre" placeholder="Juan García" />
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="profesor@autoescuela.com" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" />
+      </div>
+      <button class="btn-sm btn-verde" id="btn-registro" style="width:100%;padding:12px;font-size:1rem;" onclick="hacerRegistroProfesor()">Crear cuenta de profesor</button>
+    </div>
+
+    <!-- TAB: ALUMNO CON CÓDIGO -->
+    <div id="tab-alumno-codigo" class="modal-body" style="display:none;">
+      <div class="alerta" id="alumno-msg"></div>
+
+      <!-- PASO 1: introducir código -->
+      <div id="alumno-paso1">
+        <p style="font-size:.82rem;color:var(--gris-mid);margin-bottom:14px;">Introduce el código que te ha dado tu profesor para vincularte a su portal.</p>
+        <div class="form-group">
+          <label>Código de invitación</label>
+          <input type="text" id="alumno-codigo-input" placeholder="Ej: AB12CD" maxlength="8" style="text-transform:uppercase;letter-spacing:4px;font-size:1.2rem;text-align:center;" oninput="this.value=this.value.toUpperCase()" />
+        </div>
+        <button class="btn-sm btn-naranja" id="btn-verificar-codigo" style="width:100%;padding:12px;font-size:1rem;" onclick="verificarCodigoInvitacion()">Verificar código</button>
+      </div>
+
+      <!-- PASO 2: datos del alumno -->
+      <div id="alumno-paso2" style="display:none;">
+        <p style="font-size:.82rem;color:#2e7d32;background:#e8f5e9;padding:8px 12px;border-radius:6px;margin-bottom:14px;">✅ Código válido. Completa tu registro.</p>
+        <div class="form-group">
+          <label>Tu nombre completo</label>
+          <input type="text" id="alumno-nombre" placeholder="María López" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="alumno-email" placeholder="alumno@email.com" />
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="alumno-password" placeholder="Mínimo 6 caracteres" />
+        </div>
+        <button class="btn-sm btn-verde" id="btn-registro-alumno" style="width:100%;padding:12px;font-size:1rem;" onclick="hacerRegistroAlumno()">Crear mi cuenta</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     HEADER
+══════════════════════════════════ -->
+<header class="header">
+  <a href="#" class="header-logo">
+    Autoescuelas <span>Torcal</span>
+  </a>
+  <div class="header-badge" id="badge-rol">—</div>
+  <div class="header-right">
+    <span class="header-user" id="header-email"></span>
+    <button class="btn-sm btn-outline" id="btn-gestionar" style="display:none;" onclick="abrirGestion()">⚙️ Gestionar</button>
+    <button class="btn-sm btn-outline" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════
+     APP LAYOUT
+══════════════════════════════════ -->
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="instruccion-marcar" id="instruccion-marcar">
+      📍 Pulsa en el mapa para colocar el fallo
+    </div>
+
+    <div class="sidebar-tabs" id="sidebar-tabs">
+      <div class="sidebar-tab active" data-tab="alumnos" onclick="cambiarTab('alumnos')">Alumnos</div>
+      <div class="sidebar-tab" data-tab="fallos" onclick="cambiarTab('fallos')">Fallos</div>
+    </div>
+
+    <div class="sidebar-content">
+      <!-- Panel Alumnos -->
+      <div class="panel active" id="panel-alumnos">
+        <div class="panel-titulo">Mis alumnos</div>
+        <div id="lista-alumnos">
+          <div class="empty-state"><div class="icon">👤</div>Cargando...</div>
+        </div>
+      </div>
+
+      <!-- Panel Fallos -->
+      <div class="panel" id="panel-fallos">
+        <div class="panel-titulo" id="fallos-titulo">Fallos del alumno</div>
+        <div id="lista-fallos">
+          <div class="empty-state"><div class="icon">📋</div>Selecciona un alumno para ver sus fallos</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAPA -->
+  <div class="mapa-wrap">
+    <div id="mapa"></div>
+    <button class="fab" id="fab-marcar" style="display:none;" onclick="toggleModoMarcar()">
+      <span id="fab-icon">📍</span>
+      <span id="fab-texto">Marcar fallo</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL — AÑADIR FALLO
+══════════════════════════════════ -->
+<div class="overlay" id="overlay-fallo">
+  <div class="modal">
+    <div class="modal-header naranja">
+      <button class="modal-close" onclick="cerrarModalFallo()">✕</button>
+      <h3>📍 Añadir fallo</h3>
+      <p id="modal-alumno-nombre">Alumno seleccionado</p>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Tipo de fallo</label>
+        <select id="fallo-tipo">
+          <option value="">Selecciona...</option>
+          <option value="Stop">🛑 Stop</option>
+          <option value="Ceda el paso">⚠️ Ceda el paso</option>
+          <option value="Glorieta">🔄 Glorieta</option>
+          <option value="Semáforo">🚦 Semáforo</option>
+          <option value="Incorporación">↗️ Incorporación</option>
+          <option value="Velocidad">⚡ Velocidad</option>
+          <option value="Carril">↔️ Carril</option>
+          <option value="Espejo / Ángulo muerto">🔍 Espejo / Ángulo muerto</option>
+          <option value="Otros">✏️ Otros</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Descripción del fallo</label>
+        <textarea id="fallo-descripcion" placeholder="Describe qué ocurrió exactamente..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-outline" onclick="cerrarModalFallo()">Cancelar</button>
+      <button class="btn-sm btn-naranja" onclick="guardarFallo()">Guardar fallo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL — GESTIÓN PROFESOR
+══════════════════════════════════ -->
+<div class="overlay" id="overlay-gestion">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <button class="modal-close" onclick="cerrarGestion()">✕</button>
+      <h3>⚙️ Gestión del portal</h3>
+      <p>Administra tus alumnos e invitaciones</p>
+    </div>
+    <div class="modal-body">
+
+      <!-- Código de invitación -->
+      <div class="gestion-accion">
+        <div class="gestion-titulo">📨 Código para invitar alumnos</div>
+        <div class="codigo-box">
+          <div class="codigo-valor" id="mi-codigo">—</div>
+          <div class="codigo-hint">Comparte este código con tus alumnos</div>
+        </div>
+        <button class="btn-sm btn-verde" onclick="regenerarCodigo()" style="width:100%;padding:10px;">🔄 Generar nuevo código</button>
+      </div>
+
+      <!-- Lista de alumnos vinculados -->
+      <div class="gestion-accion">
+        <div class="gestion-titulo">🎓 Mis alumnos vinculados</div>
+        <div id="gestion-lista-alumnos">
+          <div class="empty-state" style="padding:16px;"><div class="icon">👤</div>Cargando...</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-outline" onclick="cerrarGestion()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// CONFIG SUPABASE
+// Reemplaza con tus credenciales reales de Supabase
+// ══════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://pqtsuwgcbcqyronsvqp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wTKqRrEJ1ewPiDXuc2koxA_TzsZiJpU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════════════════════════
+let usuario            = null;
+let perfil             = null;
+let alumnoSeleccionado = null;
+let modoMarcar         = false;
+let coordPendiente     = null;
+let marcadores         = {};
+let alumnos            = [];
+let fallosAlumno       = [];
+let mapa;
+let codigoProfesorPendiente = null; // codigo verificado para registro alumno
+
+// ══════════════════════════════════════════════════════════════
+// ARRANQUE
+// ══════════════════════════════════════════════════════════════
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    await iniciarApp(session.user);
+  } else {
+    document.getElementById('pantalla-login').classList.add('visible');
+  }
+})();
+
+// ══════════════════════════════════════════════════════════════
+// TABS LOGIN
+// ══════════════════════════════════════════════════════════════
+function mostrarLoginTab(tab) {
+  document.querySelectorAll('.login-tab').forEach((t, i) => {
+    const tabs = ['entrar','registro','alumno-codigo'];
+    t.classList.toggle('active', tabs[i] === tab);
+  });
+  ['tab-entrar','tab-registro','tab-alumno-codigo'].forEach(id => {
+    document.getElementById(id).style.display = id === 'tab-' + tab ? 'block' : 'none';
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════════════════
+async function hacerLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const msg      = document.getElementById('login-msg');
+  msg.className  = 'alerta';
+
+  if (!email || !password) {
+    msg.textContent = 'Rellena email y contraseña.';
+    msg.className   = 'alerta error';
+    return;
+  }
+
+  setBtnLoading('btn-login', true);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  setBtnLoading('btn-login', false);
+
+  if (error) {
+    msg.textContent = traducirError(error.message);
+    msg.className   = 'alerta error';
+    return;
+  }
+  await iniciarApp(data.user);
+}
+
+// ══════════════════════════════════════════════════════════════
+// REGISTRO — PROFESOR
+// ══════════════════════════════════════════════════════════════
+async function hacerRegistroProfesor() {
+  const nombre   = document.getElementById('reg-nombre').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const msg      = document.getElementById('registro-msg');
+  msg.className  = 'alerta';
+
+  if (!nombre || !email || !password) {
+    msg.textContent = 'Rellena todos los campos.'; msg.className = 'alerta error'; return;
+  }
+  if (password.length < 6) {
+    msg.textContent = 'La contraseña debe tener al menos 6 caracteres.'; msg.className = 'alerta error'; return;
+  }
+
+  setBtnLoading('btn-registro', true);
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) {
+    msg.textContent = traducirError(error.message); msg.className = 'alerta error';
+    setBtnLoading('btn-registro', false); return;
+  }
+
+  const uid = data.user.id;
+  const codigo = generarCodigo();
+
+  // Crear perfil de profesor
+  const { error: perfilErr } = await sb.from('perfiles').insert({
+    id: uid, nombre, email, rol: 'profesor', codigo_invitacion: codigo
+  });
+
+  setBtnLoading('btn-registro', false);
+
+  if (perfilErr) {
+    msg.textContent = 'Error al guardar el perfil: ' + perfilErr.message;
+    msg.className   = 'alerta error'; return;
+  }
+
+  msg.textContent = '✅ Cuenta creada. Revisa tu email para confirmar y luego inicia sesión.';
+  msg.className   = 'alerta success';
+}
+
+// ══════════════════════════════════════════════════════════════
+// REGISTRO — ALUMNO (con código)
+// ══════════════════════════════════════════════════════════════
+async function verificarCodigoInvitacion() {
+  const codigo = document.getElementById('alumno-codigo-input').value.trim().toUpperCase();
+  const msg    = document.getElementById('alumno-msg');
+  msg.className = 'alerta';
+
+  if (!codigo || codigo.length < 4) {
+    msg.textContent = 'Introduce el código de invitación.'; msg.className = 'alerta error'; return;
+  }
+
+  setBtnLoading('btn-verificar-codigo', true);
+  const { data, error } = await sb.from('perfiles')
+    .select('id, nombre, codigo_invitacion')
+    .eq('codigo_invitacion', codigo)
+    .eq('rol', 'profesor')
+    .single();
+  setBtnLoading('btn-verificar-codigo', false);
+
+  if (error || !data) {
+    msg.textContent = 'Código no válido. Pide a tu profesor que te lo confirme.';
+    msg.className   = 'alerta error'; return;
+  }
+
+  codigoProfesorPendiente = { profesor_id: data.id, codigo };
+  document.getElementById('alumno-paso1').style.display = 'none';
+  document.getElementById('alumno-paso2').style.display = 'block';
+  msg.textContent = `Código válido. Profesor: ${data.nombre}`;
+  msg.className   = 'alerta success';
+}
+
+async function hacerRegistroAlumno() {
+  const nombre   = document.getElementById('alumno-nombre').value.trim();
+  const email    = document.getElementById('alumno-email').value.trim();
+  const password = document.getElementById('alumno-password').value;
+  const msg      = document.getElementById('alumno-msg');
+  msg.className  = 'alerta';
+
+  if (!nombre || !email || !password) {
+    msg.textContent = 'Rellena todos los campos.'; msg.className = 'alerta error'; return;
+  }
+  if (password.length < 6) {
+    msg.textContent = 'La contraseña debe tener al menos 6 caracteres.'; msg.className = 'alerta error'; return;
+  }
+  if (!codigoProfesorPendiente) {
+    msg.textContent = 'Error: vuelve a verificar el código.'; msg.className = 'alerta error'; return;
+  }
+
+  setBtnLoading('btn-registro-alumno', true);
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) {
+    msg.textContent = traducirError(error.message); msg.className = 'alerta error';
+    setBtnLoading('btn-registro-alumno', false); return;
+  }
+
+  const uid = data.user.id;
+
+  // Crear perfil alumno
+  await sb.from('perfiles').insert({ id: uid, nombre, email, rol: 'alumno' });
+
+  // Vinculación alumno ↔ profesor
+  await sb.from('relaciones_profesor_alumno').insert({
+    profesor_id: codigoProfesorPendiente.profesor_id,
+    alumno_id:   uid
+  });
+
+  setBtnLoading('btn-registro-alumno', false);
+  msg.textContent = '✅ Cuenta creada y vinculada a tu profesor. Revisa tu email y luego inicia sesión.';
+  msg.className   = 'alerta success';
+}
+
+// ══════════════════════════════════════════════════════════════
+// LOGOUT
+// ══════════════════════════════════════════════════════════════
+async function cerrarSesion() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ══════════════════════════════════════════════════════════════
+// INIT APP (tras login)
+// ══════════════════════════════════════════════════════════════
+async function iniciarApp(user) {
+  usuario = user;
+
+  const { data: p } = await sb.from('perfiles').select('*').eq('id', user.id).single();
+  perfil = p;
+
+  document.getElementById('pantalla-login').classList.remove('visible');
+  document.getElementById('header-email').textContent = perfil?.nombre || user.email;
+
+  const badge = document.getElementById('badge-rol');
+  if (perfil?.rol === 'profesor') {
+    badge.textContent = '👨‍🏫 Profesor';
+    document.getElementById('btn-gestionar').style.display = 'flex';
+  } else {
+    badge.textContent = '🎓 Alumno';
+    badge.style.background  = '#e8f0fe';
+    badge.style.color       = '#1a56db';
+    badge.style.borderColor = '#1a56db';
+  }
+
+  iniciarMapa();
+
+  if (perfil?.rol === 'alumno') {
+    // Vista alumno: solo sus propios fallos
+    document.getElementById('sidebar-tabs').innerHTML =
+      `<div class="sidebar-tab active" style="flex:1;padding:12px 8px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.88rem;text-transform:uppercase;letter-spacing:.3px;text-align:center;color:var(--verde);border-bottom:3px solid var(--verde);">Mis fallos</div>`;
+    document.getElementById('panel-alumnos').classList.remove('active');
+    document.getElementById('panel-fallos').classList.add('active');
+    alumnoSeleccionado = { id: user.id, nombre: perfil.nombre };
+    cargarFallosAlumno(user.id);
+  } else {
+    // Vista profesor
+    document.getElementById('fab-marcar').style.display = 'flex';
+    cargarAlumnosDelProfesor();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAPA
+// ══════════════════════════════════════════════════════════════
+function iniciarMapa() {
+  if (mapa) return; // evitar doble init
+  mapa = L.map('mapa', { center: [37.3886, -5.9823], zoom: 13 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }).addTo(mapa);
+  mapa.on('click', function(e) {
+    if (!modoMarcar || !alumnoSeleccionado) return;
+    coordPendiente = { lat: e.latlng.lat, lng: e.latlng.lng };
+    abrirModalFallo();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// ALUMNOS — solo los del profesor logueado
+// ══════════════════════════════════════════════════════════════
+async function cargarAlumnosDelProfesor() {
+  document.getElementById('lista-alumnos').innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Cargando...</div>';
+
+  // Obtener IDs de alumnos vinculados a este profesor
+  const { data: relaciones, error: relErr } = await sb
+    .from('relaciones_profesor_alumno')
+    .select('alumno_id')
+    .eq('profesor_id', usuario.id);
+
+  if (relErr || !relaciones || relaciones.length === 0) {
+    alumnos = [];
+    renderAlumnos();
+    return;
+  }
+
+  const ids = relaciones.map(r => r.alumno_id);
+
+  const { data, error } = await sb.from('perfiles')
+    .select('*')
+    .in('id', ids)
+    .order('nombre');
+
+  if (error) {
+    document.getElementById('lista-alumnos').innerHTML = '<div class="empty-state"><div class="icon">⚠️</div>Error al cargar alumnos.</div>';
+    return;
+  }
+
+  alumnos = data || [];
+  renderAlumnos();
+}
+
+function renderAlumnos() {
+  const lista = document.getElementById('lista-alumnos');
+  if (alumnos.length === 0) {
+    lista.innerHTML = `<div class="empty-state"><div class="icon">📨</div>No tienes alumnos vinculados aún.<br><br>Pulsa <strong>⚙️ Gestionar</strong> arriba para obtener tu código de invitación.</div>`;
+    return;
+  }
+  lista.innerHTML = alumnos.map(a => `
+    <div class="alumno-item ${alumnoSeleccionado?.id === a.id ? 'selected' : ''}" onclick="seleccionarAlumno('${a.id}','${escHtml(a.nombre)}')">
+      <div class="alumno-avatar">${a.nombre.charAt(0).toUpperCase()}</div>
+      <div class="alumno-info">
+        <div class="alumno-nombre">${escHtml(a.nombre)}</div>
+        <div class="alumno-fallos">Ver fallos en el mapa</div>
+      </div>
+    </div>`).join('');
+}
+
+async function seleccionarAlumno(id, nombre) {
+  alumnoSeleccionado = { id, nombre };
+  renderAlumnos();
+  cambiarTab('fallos');
+  await cargarFallosAlumno(id);
+}
+
+// ══════════════════════════════════════════════════════════════
+// FALLOS
+// ══════════════════════════════════════════════════════════════
+async function cargarFallosAlumno(alumnoId) {
+  document.getElementById('fallos-titulo').textContent =
+    alumnoSeleccionado?.nombre ? `Fallos — ${alumnoSeleccionado.nombre}` : 'Mis fallos';
+  document.getElementById('lista-fallos').innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Cargando...</div>';
+
+  Object.values(marcadores).forEach(m => mapa.removeLayer(m));
+  marcadores = {};
+
+  const { data, error } = await sb.from('fallos')
+    .select('*')
+    .eq('alumno_id', alumnoId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    document.getElementById('lista-fallos').innerHTML = '<div class="empty-state"><div class="icon">⚠️</div>Error al cargar fallos.</div>';
+    return;
+  }
+
+  fallosAlumno = data || [];
+  renderFallos();
+  pintarMarcadores();
+}
+
+function renderFallos() {
+  const lista = document.getElementById('lista-fallos');
+  if (fallosAlumno.length === 0) {
+    lista.innerHTML = '<div class="empty-state"><div class="icon">✅</div>¡Sin fallos registrados!</div>';
+    return;
+  }
+  lista.innerHTML = fallosAlumno.map(f => `
+    <div class="fallo-item" onclick="centrarMapa(${f.latitud}, ${f.longitud}, '${f.id}')">
+      <div class="fallo-desc">${escHtml(f.descripcion)}</div>
+      <span class="popup-tipo">${escHtml(f.tipo || 'Fallo')}</span>
+      <div class="fallo-meta">📅 ${formatFecha(f.created_at)}</div>
+      ${perfil?.rol !== 'alumno' ? `<div style="margin-top:6px;"><button onclick="eliminarFallo('${f.id}',event)" style="background:none;border:none;color:#e74c3c;font-size:.78rem;cursor:pointer;font-weight:600;padding:0;">✕ Eliminar</button></div>` : ''}
+    </div>`).join('');
+}
+
+function pintarMarcadores() {
+  const iconoFallo = L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;background:#F5821F;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>`,
+    iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30]
+  });
+
+  fallosAlumno.forEach(f => {
+    const m = L.marker([f.latitud, f.longitud], { icon: iconoFallo })
+      .addTo(mapa)
+      .bindPopup(`
+        <div class="popup-inner">
+          <div class="popup-alumno">👤 ${escHtml(alumnoSeleccionado?.nombre || '')}</div>
+          <span class="popup-tipo">${escHtml(f.tipo || 'Fallo')}</span>
+          <div class="popup-desc">${escHtml(f.descripcion)}</div>
+          <div class="popup-meta">📅 ${formatFecha(f.created_at)}</div>
+        </div>`);
+    marcadores[f.id] = m;
+  });
+
+  if (fallosAlumno.length > 0) {
+    const group = L.featureGroup(Object.values(marcadores));
+    mapa.fitBounds(group.getBounds().pad(.2));
+  }
+}
+
+function centrarMapa(lat, lng, falloId) {
+  mapa.setView([lat, lng], 17, { animate: true });
+  if (marcadores[falloId]) marcadores[falloId].openPopup();
+  document.querySelectorAll('.fallo-item').forEach(el => el.classList.remove('selected'));
+  const idx = fallosAlumno.findIndex(f => f.id === falloId);
+  if (idx >= 0) document.querySelectorAll('.fallo-item')[idx]?.classList.add('selected');
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODO MARCAR FALLO
+// ══════════════════════════════════════════════════════════════
+function toggleModoMarcar() {
+  if (!alumnoSeleccionado) { alert('Primero selecciona un alumno.'); return; }
+  modoMarcar = !modoMarcar;
+  const fab    = document.getElementById('fab-marcar');
+  const inst   = document.getElementById('instruccion-marcar');
+  const mapaEl = document.getElementById('mapa');
+  if (modoMarcar) {
+    fab.classList.add('cancelar');
+    document.getElementById('fab-icon').textContent  = '✕';
+    document.getElementById('fab-texto').textContent = 'Cancelar';
+    inst.style.display = 'block';
+    mapaEl.classList.add('modo-marcar');
+  } else {
+    fab.classList.remove('cancelar');
+    document.getElementById('fab-icon').textContent  = '📍';
+    document.getElementById('fab-texto').textContent = 'Marcar fallo';
+    inst.style.display = 'none';
+    mapaEl.classList.remove('modo-marcar');
+    coordPendiente = null;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODAL FALLO
+// ══════════════════════════════════════════════════════════════
+function abrirModalFallo() {
+  document.getElementById('modal-alumno-nombre').textContent = `Alumno: ${alumnoSeleccionado.nombre}`;
+  document.getElementById('fallo-tipo').value        = '';
+  document.getElementById('fallo-descripcion').value = '';
+  document.getElementById('overlay-fallo').classList.add('visible');
+  modoMarcar = false;
+  const fab = document.getElementById('fab-marcar');
+  const inst = document.getElementById('instruccion-marcar');
+  fab.classList.remove('cancelar');
+  document.getElementById('fab-icon').textContent  = '📍';
+  document.getElementById('fab-texto').textContent = 'Marcar fallo';
+  inst.style.display = 'none';
+  document.getElementById('mapa').classList.remove('modo-marcar');
+}
+
+function cerrarModalFallo() {
+  document.getElementById('overlay-fallo').classList.remove('visible');
+  coordPendiente = null;
+}
+
+async function guardarFallo() {
+  const tipo = document.getElementById('fallo-tipo').value;
+  const desc = document.getElementById('fallo-descripcion').value.trim();
+  if (!tipo || !desc)  { alert('Rellena el tipo y la descripción del fallo.'); return; }
+  if (!coordPendiente) { alert('No se capturaron las coordenadas. Vuelve a intentarlo.'); return; }
+
+  const { error } = await sb.from('fallos').insert({
+    alumno_id:   alumnoSeleccionado.id,
+    profesor_id: usuario.id,
+    latitud:     coordPendiente.lat,
+    longitud:    coordPendiente.lng,
+    tipo, descripcion: desc
+  });
+
+  if (error) { alert('Error al guardar: ' + error.message); return; }
+  cerrarModalFallo();
+  cargarFallosAlumno(alumnoSeleccionado.id);
+  cambiarTab('fallos');
+}
+
+async function eliminarFallo(falloId, e) {
+  e.stopPropagation();
+  if (!confirm('¿Eliminar este fallo?')) return;
+  await sb.from('fallos').delete().eq('id', falloId);
+  cargarFallosAlumno(alumnoSeleccionado.id);
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODAL GESTIÓN PROFESOR
+// ══════════════════════════════════════════════════════════════
+async function abrirGestion() {
+  document.getElementById('overlay-gestion').classList.add('visible');
+
+  // Mostrar código actual
+  const codigo = perfil?.codigo_invitacion || '—';
+  document.getElementById('mi-codigo').textContent = codigo;
+
+  // Cargar alumnos en panel gestión
+  cargarAlumnosGestion();
+}
+
+async function cargarAlumnosGestion() {
+  const cont = document.getElementById('gestion-lista-alumnos');
+  cont.innerHTML = '<div class="empty-state" style="padding:12px;"><div class="icon">⏳</div>Cargando...</div>';
+
+  const { data: relaciones } = await sb
+    .from('relaciones_profesor_alumno')
+    .select('alumno_id')
+    .eq('profesor_id', usuario.id);
+
+  if (!relaciones || relaciones.length === 0) {
+    cont.innerHTML = '<div class="empty-state" style="padding:12px;"><div class="icon">👤</div>No hay alumnos vinculados aún.</div>';
+    return;
+  }
+
+  const ids = relaciones.map(r => r.alumno_id);
+  const { data } = await sb.from('perfiles').select('id, nombre, email').in('id', ids).order('nombre');
+
+  if (!data || data.length === 0) {
+    cont.innerHTML = '<div class="empty-state" style="padding:12px;"><div class="icon">👤</div>Sin alumnos.</div>';
+    return;
+  }
+
+  cont.innerHTML = data.map(a => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:#f9f9f9;margin-bottom:6px;">
+      <div class="alumno-avatar" style="width:30px;height:30px;font-size:.85rem;">${a.nombre.charAt(0).toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:.88rem;">${escHtml(a.nombre)}</div>
+        <div style="font-size:.75rem;color:var(--gris-mid);">${escHtml(a.email)}</div>
+      </div>
+      <button onclick="desvincularAlumno('${a.id}',event)" style="background:none;border:none;color:#e74c3c;font-size:.78rem;cursor:pointer;font-weight:600;">✕</button>
+    </div>`).join('');
+}
+
+async function desvincularAlumno(alumnoId, e) {
+  e.stopPropagation();
+  if (!confirm('¿Desvincular este alumno de tu portal?')) return;
+  await sb.from('relaciones_profesor_alumno')
+    .delete()
+    .eq('profesor_id', usuario.id)
+    .eq('alumno_id', alumnoId);
+  cargarAlumnosGestion();
+  cargarAlumnosDelProfesor();
+}
+
+async function regenerarCodigo() {
+  const nuevo = generarCodigo();
+  const { error } = await sb.from('perfiles')
+    .update({ codigo_invitacion: nuevo })
+    .eq('id', usuario.id);
+  if (error) { alert('Error al regenerar código.'); return; }
+  perfil.codigo_invitacion = nuevo;
+  document.getElementById('mi-codigo').textContent = nuevo;
+}
+
+function cerrarGestion() {
+  document.getElementById('overlay-gestion').classList.remove('visible');
+}
+
+// ══════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════
+function cambiarTab(tab) {
+  document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${tab}`)?.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════
+function generarCodigo() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatFecha(iso) {
+  return new Date(iso).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function setBtnLoading(id, loading) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.classList.toggle('btn-loading', loading);
+  btn.disabled = loading;
+}
+
+function traducirError(msg) {
+  if (msg.includes('Invalid login'))       return 'Email o contraseña incorrectos.';
+  if (msg.includes('Email not confirmed')) return 'Confirma tu email antes de entrar.';
+  if (msg.includes('already registered'))  return 'Este email ya está registrado. Inicia sesión.';
+  if (msg.includes('User already registered')) return 'Este email ya está registrado. Inicia sesión.';
+  return 'Error: ' + msg;
+}
+
+// Cerrar modales al hacer clic fuera
+document.getElementById('overlay-fallo').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModalFallo(); });
+document.getElementById('overlay-gestion').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarGestion(); });
+</script>
+</body>
+</html>
