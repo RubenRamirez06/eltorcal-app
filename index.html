@@ -593,33 +593,41 @@ async function hacerRegistroProfesor() {
   msg.className  = 'alerta';
 
   if (!nombre || !email || !password) {
-    msg.textContent = 'Rellena todos los campos.'; msg.className = 'alerta error'; return;
+    msg.textContent = 'Rellena todos los campos.'; 
+    msg.className = 'alerta error'; 
+    return;
   }
   if (password.length < 6) {
-    msg.textContent = 'La contraseña debe tener al menos 6 caracteres.'; msg.className = 'alerta error'; return;
+    msg.textContent = 'La contraseña debe tener al menos 6 caracteres.'; 
+    msg.className = 'alerta error'; 
+    return;
   }
 
   setBtnLoading('btn-registro', true);
-  const { data, error } = await sb.auth.signUp({ email, password });
-  if (error) {
-    msg.textContent = traducirError(error.message); msg.className = 'alerta error';
-    setBtnLoading('btn-registro', false); return;
-  }
 
-  const uid = data.user.id;
-  const codigo = generarCodigo();
-
-  // Crear perfil de profesor
-  const { error: perfilErr } = await sb.from('perfiles').insert({
-    id: uid, nombre, email, rol: 'profesor', codigo_invitacion: codigo
+  // NOTA: Enviamos 'nombre' y 'rol' dentro de 'options.data'
+  // El Trigger que pusimos en SQL leerá estos datos automáticamente
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        nombre: nombre,
+        rol: 'profesor'
+      }
+    }
   });
 
   setBtnLoading('btn-registro', false);
 
-  if (perfilErr) {
-    msg.textContent = 'Error al guardar el perfil: ' + perfilErr.message;
-    msg.className   = 'alerta error'; return;
+  if (error) {
+    msg.textContent = traducirError(error.message); 
+    msg.className = 'alerta error';
+    return;
   }
+
+  // ¡IMPORTANTE! Ya NO hacemos el sb.from('perfiles').insert(...) 
+  // porque el Trigger de la base de datos se encarga de eso.
 
   msg.textContent = '✅ Cuenta creada. Revisa tu email para confirmar y luego inicia sesión.';
   msg.className   = 'alerta success';
