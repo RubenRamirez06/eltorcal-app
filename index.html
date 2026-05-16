@@ -683,7 +683,20 @@ async function hacerRegistroAlumno() {
   }
 
   setBtnLoading('btn-registro-alumno', true);
-  const { data, error } = await sb.auth.signUp({ email, password });
+
+  // 1. Registramos al alumno pasando sus metadatos (nombre y rol)
+  // Esto disparará el Trigger en Supabase para crear su perfil automáticamente
+  const { data, error } = await sb.auth.signUp({ 
+    email, 
+    password,
+    options: {
+      data: {
+        nombre: nombre,
+        rol: 'alumno'
+      }
+    }
+  });
+
   if (error) {
     msg.textContent = traducirError(error.message); msg.className = 'alerta error';
     setBtnLoading('btn-registro-alumno', false); return;
@@ -691,17 +704,21 @@ async function hacerRegistroAlumno() {
 
   const uid = data.user.id;
 
-  // Crear perfil alumno
-  await sb.from('perfiles').insert({ id: uid, nombre, email, rol: 'alumno' });
-
-  // Vinculación alumno ↔ profesor
-  await sb.from('relaciones_profesor_alumno').insert({
+  // 2. Vinculación alumno ↔ profesor
+  // Como el Trigger se encarga del perfil, solo nos preocupamos por la relación
+  const { error: relErr } = await sb.from('relaciones_profesor_alumno').insert({
     profesor_id: codigoProfesorPendiente.profesor_id,
     alumno_id:   uid
   });
 
   setBtnLoading('btn-registro-alumno', false);
-  msg.textContent = '✅ Cuenta creada y vinculada a tu profesor. Revisa tu email y luego inicia sesión.';
+
+  if (relErr) {
+    msg.textContent = 'Error al vincular con el profesor: ' + relErr.message;
+    msg.className   = 'alerta error'; return;
+  }
+
+  msg.textContent = '✅ Cuenta de alumno creada. Revisa tu email para confirmar y quedar vinculado a tu profesor.';
   msg.className   = 'alerta success';
 }
 
