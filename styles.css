@@ -481,13 +481,13 @@ html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; 
     padding: 12px;
   }
 
-  /* FAB flota sobre el sidebar — margen generoso para no quedar tapado */
+  /* FAB: fixed en móvil para que flote SIEMPRE visible sobre el sidebar */
   .fab {
-    bottom: calc(42vh + 20px);
+    position: fixed;
+    bottom: calc(42vh + 12px);
     right: 16px;
     padding: 11px 18px;
     font-size: .9rem;
-    /* Asegura que el z-index esté por encima del sidebar */
     z-index: 850;
   }
 
