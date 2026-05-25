@@ -397,10 +397,211 @@ html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; 
 .popup-meta { font-size: .75rem; color: var(--gris-mid); }
 .popup-alumno { font-size: .78rem; color: var(--verde-dk); font-weight: 600; margin-bottom: 3px; }
 
-/* ── RESPONSIVE ── */
+/* ══════════════════════════════════════════
+   RESPONSIVE – MÓVIL
+   ══════════════════════════════════════════ */
+
+/* ── Pantalla pequeña: sidebar abajo tipo drawer ── */
 @media (max-width: 700px) {
-  .sidebar { width: 100%; position: fixed; bottom: 0; left: 0; right: 0; height: 45vh; z-index: 800; border-right: none; border-top: 2px solid #e8e8e8; }
-  .mapa-wrap { height: 55vh; }
-  .app-layout { flex-direction: column; }
-  .fab { bottom: calc(45vh + 16px); }
+
+  /* Layout principal */
+  .app-layout {
+    flex-direction: column;
+    height: calc(100vh - 56px);
+    margin-top: 56px;
+  }
+
+  /* Header más compacto */
+  .header {
+    height: 56px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+  .header-logo {
+    font-size: 1rem;
+  }
+  .header-badge {
+    display: none; /* Ocupa mucho espacio en móvil */
+  }
+  .header-user {
+    display: none; /* El nombre lo omitimos en móvil */
+  }
+  .btn-sm {
+    padding: 5px 12px;
+    font-size: .8rem;
+  }
+
+  /* Mapa ocupa la zona superior */
+  .mapa-wrap {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+
+  /* Sidebar fijo abajo tipo bottom-sheet */
+  .sidebar {
+    width: 100%;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 42vh;
+    min-height: 200px;
+    max-height: 60vh;
+    z-index: 800;
+    border-right: none;
+    border-top: 3px solid var(--verde);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+    /* Franja de arrastre visual */
+    padding-top: 4px;
+  }
+
+  /* Indicador visual de "arrastre" encima de las tabs */
+  .sidebar::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    margin: 6px auto 4px;
+  }
+
+  /* Tabs más compactas */
+  .sidebar-tabs {
+    border-bottom: 1.5px solid #f0f0f0;
+  }
+  .sidebar-tab {
+    padding: 10px 6px;
+    font-size: .8rem;
+  }
+
+  .sidebar-content {
+    padding: 12px;
+  }
+
+  /* FAB flota sobre el sidebar */
+  .fab {
+    bottom: calc(42vh + 14px);
+    right: 16px;
+    padding: 11px 18px;
+    font-size: .9rem;
+  }
+
+  /* Instrucción marcar */
+  .instruccion-marcar {
+    font-size: .82rem;
+    padding: 8px 12px;
+  }
+
+  /* Alumnos: items más compactos */
+  .alumno-item {
+    padding: 8px 10px;
+  }
+  .alumno-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: .88rem;
+  }
+  .alumno-nombre {
+    font-size: .85rem;
+  }
+
+  /* Fallos */
+  .fallo-item {
+    padding: 8px 10px;
+  }
+  .fallo-desc {
+    font-size: .83rem;
+  }
+
+  /* Modal: ocupa casi toda la pantalla */
+  .modal {
+    max-width: 100%;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+  .overlay {
+    align-items: flex-end;
+  }
+  @keyframes modalIn {
+    from { opacity:0; transform:translateY(32px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* Popup Leaflet más pequeño en móvil */
+  .popup-inner {
+    min-width: 160px;
+    max-width: 220px;
+    padding: 10px 12px;
+  }
+
+  /* Pantalla login: modal centrada con scroll */
+  #pantalla-login {
+    align-items: flex-end;
+  }
+  #pantalla-login .modal {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+
+  /* Código de invitación más compacto */
+  .codigo-valor {
+    font-size: 1.6rem;
+    letter-spacing: 4px;
+  }
+
+  /* Modal footer: botones en columna si hay poco espacio */
+  .modal-footer {
+    padding: 0 16px 16px;
+    flex-wrap: wrap;
+  }
+  .modal-footer button {
+    min-width: 0;
+    padding: 12px;
+  }
+
+  /* Panel gestión */
+  .gestion-accion {
+    padding: 10px 12px;
+  }
+}
+
+/* ── Pantallas muy pequeñas (≤ 380px, iPhone SE etc.) ── */
+@media (max-width: 380px) {
+  .header-logo {
+    font-size: .9rem;
+  }
+  .fab {
+    padding: 10px 14px;
+    font-size: .82rem;
+    gap: 6px;
+  }
+  .sidebar {
+    height: 44vh;
+  }
+  .fab {
+    bottom: calc(44vh + 12px);
+  }
+  .sidebar-tab {
+    font-size: .72rem;
+    padding: 9px 4px;
+  }
+}
+
+/* ── Tablets medianos (701px – 900px) ── */
+@media (min-width: 701px) and (max-width: 900px) {
+  .sidebar {
+    width: 260px;
+  }
+  .header-badge {
+    display: none;
+  }
 }
