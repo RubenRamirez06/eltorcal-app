@@ -481,12 +481,14 @@ html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; 
     padding: 12px;
   }
 
-  /* FAB flota sobre el sidebar */
+  /* FAB flota sobre el sidebar — margen generoso para no quedar tapado */
   .fab {
-    bottom: calc(42vh + 14px);
+    bottom: calc(42vh + 20px);
     right: 16px;
     padding: 11px 18px;
     font-size: .9rem;
+    /* Asegura que el z-index esté por encima del sidebar */
+    z-index: 850;
   }
 
   /* Instrucción marcar */
@@ -516,22 +518,25 @@ html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; 
     font-size: .83rem;
   }
 
-  /* Modal: ocupa casi toda la pantalla */
+  /* Modal: centrado en pantalla con scroll interno (NO bottom-sheet,
+     así no se corta con el teclado virtual ni queda descuadrado) */
+  .overlay {
+    align-items: center;
+    padding: 16px;
+  }
   .modal {
     max-width: 100%;
+    width: 100%;
     margin: 0;
-    border-radius: 16px 16px 0 0;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-  }
-  .overlay {
-    align-items: flex-end;
-  }
-  @keyframes modalIn {
-    from { opacity:0; transform:translateY(32px); }
-    to   { opacity:1; transform:translateY(0); }
+    border-radius: 14px;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    max-height: 88vh;
+    overflow-y: auto;
+    /* Scroll suave dentro del modal */
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Popup Leaflet más pequeño en móvil */
@@ -541,15 +546,16 @@ html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; 
     padding: 10px 12px;
   }
 
-  /* Pantalla login: modal centrada con scroll */
+  /* Pantalla login: centrada con scroll */
   #pantalla-login {
-    align-items: flex-end;
+    align-items: center;
+    padding: 16px;
   }
   #pantalla-login .modal {
-    max-width: 100%;
-    border-radius: 16px 16px 0 0;
-    max-height: 95vh;
+    border-radius: 14px;
+    max-height: 92vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Código de invitación más compacto */
@@ -583,12 +589,10 @@ html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; 
     padding: 10px 14px;
     font-size: .82rem;
     gap: 6px;
+    bottom: calc(44vh + 20px);
   }
   .sidebar {
     height: 44vh;
-  }
-  .fab {
-    bottom: calc(44vh + 12px);
   }
   .sidebar-tab {
     font-size: .72rem;
