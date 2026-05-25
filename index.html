@@ -897,7 +897,16 @@ function pintarMarcadores() {
 }
 
 function centrarMapa(lat, lng, falloId) {
-  mapa.setView([lat, lng], 17, { animate: true });
+  // En móvil el sidebar tapa la parte inferior del mapa.
+  // Compensamos desplazando el centro hacia arriba para que el marcador
+  // quede en la zona visible (por encima del sidebar).
+  const esMobil = window.innerWidth <= 700;
+  const offsetY = esMobil ? Math.round(window.innerHeight * 0.21) : 0; // ~mitad del sidebar (42vh/2)
+
+  mapa.setView([lat, lng], 17, { animate: false });
+  if (offsetY) mapa.panBy([0, offsetY], { animate: true });
+  else mapa.setView([lat, lng], 17, { animate: true });
+
   if (marcadores[falloId]) marcadores[falloId].openPopup();
   document.querySelectorAll('.fallo-item').forEach(el => el.classList.remove('selected'));
   const idx = fallosAlumno.findIndex(f => f.id === falloId);

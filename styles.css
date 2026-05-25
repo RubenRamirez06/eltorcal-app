@@ -484,7 +484,7 @@ html, body { height: 100%; overflow: hidden; font-family: 'Barlow', sans-serif; 
   /* FAB: fixed en móvil para que flote SIEMPRE visible sobre el sidebar */
   .fab {
     position: fixed;
-    bottom: calc(42vh + 12px);
+    bottom: calc(42vh + 16px);
     right: 16px;
     padding: 11px 18px;
     font-size: .9rem;
